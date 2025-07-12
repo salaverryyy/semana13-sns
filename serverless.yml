@@ -1,29 +1,44 @@
 org: gfc0r
-service: api-alumno      # ⇦ pon el nombre que quieras
+service: api-alumno          # nombre lógico del stack
+
+frameworkVersion: "3"        # versión del Framework Serverless
 
 provider:
   name: aws
   runtime: python3.13
+  region: us-east-1
   memorySize: 1024
   timeout: 30
-  region: us-east-1
 
-  # Usa el mismo rol gestionado que ya tienes en tu cuenta/lab
+  # rol IAM ya provisto por el laboratorio / cuenta
   iam:
     role: arn:aws:iam::570699102669:role/LabRole
 
-  # Variable para reutilizar el nombre de la tabla por stage
+  # variables de entorno comunes
   environment:
     TABLE_NAME: ${sls:stage}-t_alumnos_canvas
+    SNS_TOPIC_ARN: arn:aws:sns:${aws:region}:570699102669:NuevoAlumno
 
 functions:
-  procesar:
-    handler: ProcesarAlumno.lambda_handler        # ⇦ nombre_del_archivo.lambda_handler
+  # 1) Lambda que recibe vía HTTP y publica en SNS
+  crear:
+    handler: CrearAlumno.lambda_handler
     events:
-      # Dispara cuando SNS publique en el tópico “NuevoAlumno”
+      - httpApi:
+          path: /alumno/crear
+          method: post
+          cors: true          # CORS abierto (ajusta si necesitas)
+
+  # 2) Lambda que consume del tópico SNS con filtro tenant_id = "UTEC"
+  procesar:
+    handler: ProcesarAlumno.lambda_handler
+    events:
       - sns:
-          arn: arn:aws:sns:${aws:region}:570699102669:NuevoAlumno
+          arn: ${self:provider.environment.SNS_TOPIC_ARN}
           topicName: NuevoAlumno
+          filterPolicy:
+            tenant_id:
+              - UTEC
 
 resources:
   Resources:
@@ -41,4 +56,4 @@ resources:
             KeyType: HASH
           - AttributeName: alumno_id
             KeyType: RANGE
-        BillingMode: PAY_PER_REQUEST
+        BillingMode: PAY_PER_REQUEST   # on-demand

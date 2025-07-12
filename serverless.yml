@@ -1,7 +1,5 @@
 org: gfc0r
-service: api-alumno          # nombre lógico del stack
-
-frameworkVersion: "3"        # versión del Framework Serverless
+service: api-alumno         
 
 provider:
   name: aws
